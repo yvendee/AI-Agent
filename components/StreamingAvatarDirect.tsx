@@ -23,6 +23,7 @@ import OpenAI from "openai";
 import { useEffect, useRef, useState } from "react";
 import StreamingAvatarTextInput from "./StreamingAvatarTextInput";
 
+
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true,
@@ -173,12 +174,61 @@ export default function StreamingAvatar() {
       setDebug("Avatar API not initialized");
       return;
     }
-    await avatar.current
-      .speak({ taskRequest: { text: text, sessionId: data?.sessionId } })
+
+    const openai = new OpenAI({
+      apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY, // Next.js requires you to prefix environment variables with NEXT_PUBLIC_ to make them accessible in the browser (client-side code).
+      dangerouslyAllowBrowser: true,
+    });
+  
+  
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: "You are an assistant." },
+        { role: "user", content: text }
+      ],
+      temperature: 0.3,
+      max_tokens: 4096,
+      top_p: 0.9,
+      frequency_penalty: 0.1,
+      presence_penalty: 0.1
+    });
+
+    const rtn: string = response.choices[0].message.content as string;
+    
+    // Log the response from OpenAI
+    console.log("OpenAI Response:", rtn);
+
+    // // Use the response as needed, for example, to speak through the avatar
+    // await avatar.current.speak({
+    //   taskRequest: { text: rtn, sessionId: data?.sessionId }
+    // });
+
+    // Check if response.choices[0].message.content is not null
+    if (response.choices[0]?.message?.content !== null) {
+      const rtn: string = response.choices[0].message.content;
+      
+      // Log the response from OpenAI
+      console.log("OpenAI Response:", rtn);
+
+      // Use the response as needed, for example, to speak through the avatar
+      await avatar.current
+      .speak({ taskRequest: { text: rtn, sessionId: data?.sessionId } })
       .catch((e) => {
         setDebug(e.message);
       });
-    setIsLoadingRepeat(false);
+      setIsLoadingRepeat(false);
+    } 
+
+    // await avatar.current
+    //   .speak({ taskRequest: { text: rtn, sessionId: data?.sessionId } })
+    //   .catch((e) => {
+    //     setDebug(e.message);
+    //   });
+    // setIsLoadingRepeat(false);
+  
+    // Log the text state when onSubmit is triggered
+    console.log("Submitted text:", text);
   }
 
   useEffect(() => {
@@ -306,11 +356,14 @@ export default function StreamingAvatar() {
             placeholder="Type something for the avatar to repeat"
             input={text}
             onSubmit={handleSpeak}
-            setInput={setText}
+            setInput={(newText) => {
+              // console.log("Typed text:", newText);  // Logging the text input
+              setText(newText);  // Updating the state with the new text
+            }}
             disabled={!stream}
             loading={isLoadingRepeat}
           />
-          <StreamingAvatarTextInput
+          {/* <StreamingAvatarTextInput
             label="Chat"
             placeholder="Chat with the avatar (uses ChatGPT)"
             input={input}
@@ -353,7 +406,7 @@ export default function StreamingAvatar() {
               </Tooltip>
             }
             disabled={!stream}
-          />
+          /> */}
         </CardFooter>
       </Card>
       <p className="font-mono text-right">
